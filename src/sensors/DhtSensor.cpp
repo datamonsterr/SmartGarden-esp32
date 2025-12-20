@@ -1,19 +1,17 @@
 #include "sensors/DhtSensor.h"
 
-#include <DHT.h>
+#include <DHTesp.h>
 
 namespace sensors {
 
-namespace {
-static const uint8_t kDhtType = DHT22;
-}
+// Static DHTesp instance to ensure it persists
+static DHTesp dhtSensor;
 
 DhtSensor::DhtSensor(uint8_t pin) : pin_(pin) {}
 
 void DhtSensor::begin() {
-  // DHT library expects the object to live for program lifetime.
-  dht_ = new DHT(pin_, kDhtType);
-  static_cast<DHT*>(dht_)->begin();
+  dhtSensor.setup(pin_, DHTesp::DHT22);
+  dht_ = &dhtSensor;
 }
 
 DhtReading DhtSensor::read() {
@@ -22,9 +20,14 @@ DhtReading DhtSensor::read() {
     return out;
   }
 
-  auto* dht = static_cast<DHT*>(dht_);
-  const float humidity = dht->readHumidity();
-  const float temperature = dht->readTemperature();
+  DHTesp* dht = static_cast<DHTesp*>(dht_);
+  
+  float humidity = dht->getHumidity();
+  float temperature = dht->getTemperature();
+
+  if (dht->getStatus() != DHTesp::ERROR_NONE) {
+    return out;
+  }
 
   if (isnan(humidity) || isnan(temperature)) {
     return out;

@@ -15,18 +15,16 @@
     { "type": "wokwi-led", "id": "ledLight", "top": -70.6, "left": -351.4, "attrs": { "color": "yellow", "label": "Light" } },
 
     { "type": "wokwi-relay-module", "id": "relayValve", "top": 44.2, "left": -274.2, "attrs": { "label": "Relay Valve" } },
-    { "type": "wokwi-led", "id": "ledValve", "top": 2.6, "left": -351.4, "attrs": { "color": "blue", "label": "Valve" } },
-
-    { "type": "wokwi-pushbutton", "id": "btnLightOff", "top": -165.8, "left": -8.2, "attrs": { "label": "Manual OFF latch" } }
+    { "type": "wokwi-led", "id": "ledValve", "top": 2.6, "left": -351.4, "attrs": { "color": "blue", "label": "Valve" } }
   ],
   "connections": [
     [ "dht:VCC", "esp:3V3", "red", [ "v0" ] ],
     [ "dht:GND", "esp:GND.2", "black", [ "v0" ] ],
-    [ "dht:SDA", "esp:GPIO4", "green", [ "v0" ] ],
+    [ "dht:SDA", "esp:D15", "green", [ "v0" ] ],
 
-    [ "pir:VCC", "esp:5V", "red", [ "v0" ] ],
+    [ "pir:VCC", "esp:VIN", "red", [ "v0" ] ],
     [ "pir:GND", "esp:GND.1", "black", [ "v0" ] ],
-    [ "pir:OUT", "esp:GPIO27", "orange", [ "v0" ] ],
+    [ "pir:OUT", "esp:D27", "orange", [ "v0" ] ],
 
     [ "potMq:VCC", "esp:3V3", "red", [ "v0" ] ],
     [ "potMq:GND", "esp:GND.2", "black", [ "v0" ] ],
@@ -52,8 +50,12 @@
     [ "relayValve:NO", "ledValve:A", "blue", [ "v0" ] ],
     [ "ledValve:C", "esp:GND.1", "black", [ "v0" ] ],
 
-    [ "btnLightOff:1.l", "esp:GPIO14", "green", [ "v0" ] ],
-    [ "btnLightOff:2.l", "esp:GND.2", "black", [ "v0" ] ]
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ]
   ],
+  "serialMonitor": {
+    "display": "always",
+    "newline": "lf"
+  },
   "dependencies": {}
 }

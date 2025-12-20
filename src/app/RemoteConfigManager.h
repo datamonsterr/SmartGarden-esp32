@@ -5,7 +5,6 @@
 
 #include "app/RuntimeConfig.h"
 #include "app/Settings.h"
-#include "controllers/LightController.h"
 #include "controllers/WateringController.h"
 
 namespace app {
@@ -15,7 +14,6 @@ class RemoteConfigManager {
   RemoteConfigManager(
       RuntimeConfig& runtimeConfig,
       Settings& settings,
-      controllers::LightController& light,
       controllers::WateringController& watering);
 
   void begin();
@@ -30,7 +28,6 @@ class RemoteConfigManager {
  private:
   RuntimeConfig& config_;
   Settings& settings_;
-  controllers::LightController& light_;
   controllers::WateringController& watering_;
 
   bool loadFromNvs_();

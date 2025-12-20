@@ -13,9 +13,8 @@ static const char* kPrefsNamespace = "sg_cfg";
 RemoteConfigManager::RemoteConfigManager(
     RuntimeConfig& runtimeConfig,
     Settings& settings,
-    controllers::LightController& light,
     controllers::WateringController& watering)
-    : config_(runtimeConfig), settings_(settings), light_(light), watering_(watering) {}
+    : config_(runtimeConfig), settings_(settings), watering_(watering) {}
 
 void RemoteConfigManager::begin() {
   // Load last known config (if any). If not present, runtime config stays at defaults.
@@ -29,7 +28,7 @@ void RemoteConfigManager::begin() {
 
 const char* RemoteConfigManager::sharedKeysCsv() {
   // Keep this stable so dashboards / attributes are easy to manage.
-  return "telemetryIntervalMs,sensorReadIntervalMs,lightOnAfterMotionMs,tempLightEnabled,tempTooColdC,soilWetThreshold,soilDryThreshold,minValveOnMs,minValveOffMs";
+  return "telemetryIntervalMs,sensorReadIntervalMs,tempLightEnabled,tempTooColdC,soilWetThreshold,soilDryThreshold,minValveOnMs,minValveOffMs";
 }
 
 bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
@@ -57,7 +56,6 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 
   maybeSetU32_(cfg, "telemetryIntervalMs", config_.telemetryIntervalMs);
   maybeSetU32_(cfg, "sensorReadIntervalMs", config_.sensorReadIntervalMs);
-  maybeSetU32_(cfg, "lightOnAfterMotionMs", config_.lightOnAfterMotionMs);
 
   maybeSetBool_(cfg, "tempLightEnabled", config_.tempLightEnabled);
   maybeSetFloat_(cfg, "tempTooColdC", config_.tempTooColdC);
@@ -90,7 +88,6 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 }
 
 void RemoteConfigManager::applyToControllers_() {
-  light_.setOnAfterMotionMs(config_.lightOnAfterMotionMs);
   watering_.setThresholds(config_.soilDryThreshold, config_.soilWetThreshold);
   watering_.setMinDurations(config_.minValveOnMs, config_.minValveOffMs);
 }
@@ -153,7 +150,6 @@ bool RemoteConfigManager::loadFromNvs_() {
 
   config_.telemetryIntervalMs = prefs.getUInt("tel_ms", config_.telemetryIntervalMs);
   config_.sensorReadIntervalMs = prefs.getUInt("sen_ms", config_.sensorReadIntervalMs);
-  config_.lightOnAfterMotionMs = prefs.getUInt("lgt_ms", config_.lightOnAfterMotionMs);
 
   config_.tempLightEnabled = prefs.getBool("tmp_en", config_.tempLightEnabled);
   config_.tempTooColdC = prefs.getFloat("tmp_c", config_.tempTooColdC);
@@ -177,7 +173,6 @@ void RemoteConfigManager::saveToNvs_() {
 
   prefs.putUInt("tel_ms", config_.telemetryIntervalMs);
   prefs.putUInt("sen_ms", config_.sensorReadIntervalMs);
-  prefs.putUInt("lgt_ms", config_.lightOnAfterMotionMs);
 
   prefs.putBool("tmp_en", config_.tempLightEnabled);
   prefs.putFloat("tmp_c", config_.tempTooColdC);

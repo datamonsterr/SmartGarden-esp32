@@ -10,8 +10,6 @@ struct RuntimeConfig {
   uint32_t telemetryIntervalMs = 10000;
   uint32_t sensorReadIntervalMs = 2000;
 
-  uint32_t lightOnAfterMotionMs = 60000;
-
   // Temperature-light feature
   bool tempLightEnabled = false;
   float tempTooColdC = 18.0f;

@@ -2,27 +2,16 @@
 
 namespace controllers {
 
-LightController::LightController(actuators::RelayActuator& relay, uint32_t onAfterMotionMs, float tempHysteresisC)
-    : relay_(relay), onAfterMotionMs_(onAfterMotionMs), tempHysteresisC_(tempHysteresisC) {}
-
-void LightController::setOnAfterMotionMs(uint32_t onAfterMotionMs) {
-  onAfterMotionMs_ = onAfterMotionMs;
-}
+LightController::LightController(actuators::RelayActuator& relay, float tempHysteresisC)
+    : relay_(relay), tempHysteresisC_(tempHysteresisC) {}
 
 void LightController::update(
-    uint32_t nowMs,
-    bool motionDetected,
     const sensors::DhtReading& dht,
     const app::Settings& settings) {
-  state_.motionDetected = motionDetected;
   state_.manualOff = settings.manualOff();
   state_.remoteOverrideEnabled = settings.remoteOverrideEnabled();
   state_.tempLimitEnabled = settings.tempLimitEnabled();
   state_.tempTooColdC = settings.tempTooColdC();
-
-  if (motionDetected) {
-    state_.lastMotionMs = nowMs;
-  }
 
   if (settings.tempLimitEnabled() && dht.ok) {
     const float onAtOrBelow = settings.tempTooColdC();
@@ -44,8 +33,8 @@ void LightController::update(
   } else if (settings.remoteOverrideEnabled()) {
     desiredOn = settings.remoteLightOn();
   } else {
-    const bool motionRequestOn = (nowMs - state_.lastMotionMs) <= onAfterMotionMs_;
-    desiredOn = motionRequestOn || tempRequestOn_;
+    // Auto mode: turn on if temperature is too cold for plants
+    desiredOn = tempRequestOn_;
   }
 
   relay_.setOn(desiredOn);

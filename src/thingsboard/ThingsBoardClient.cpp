@@ -13,7 +13,8 @@ void ThingsBoardClient::begin(const char* host, uint16_t port, const char* acces
 
   mqtt_.setServer(host_, port_);
   mqtt_.setBufferSize(512);
-  mqtt_.setKeepAlive(30);
+  mqtt_.setKeepAlive(60);
+  mqtt_.setSocketTimeout(15);  // Increase socket timeout for Wokwi gateway
 
   active_ = this;
   mqtt_.setCallback(mqttCallback_);
@@ -160,12 +161,14 @@ bool ThingsBoardClient::connect_(const char* deviceName) {
   Serial.print(':');
   Serial.print(port_);
   Serial.print(" as clientId=");
-  Serial.println(clientId);
+  Serial.print(clientId);
+  Serial.print(" token=");
+  Serial.println(accessToken_);
 
   // ThingsBoard access token is used as MQTT username; password is empty.
   const bool ok = mqtt_.connect(clientId, accessToken_, nullptr);
   if (ok) {
-    Serial.println("ThingsBoard MQTT connected");
+    Serial.println("ThingsBoard MQTT connected!");
 
     // Subscribe to RPC requests (used for schedule & dashboard control).
     if (!mqtt_.subscribe(kRpcRequestTopic_)) {
@@ -180,8 +183,25 @@ bool ThingsBoardClient::connect_(const char* deviceName) {
       Serial.println("MQTT subscribe failed (attributes response)");
     }
   } else {
-    Serial.print("ThingsBoard MQTT connect failed. state=");
-    Serial.println(mqtt_.state());
+    const int state = mqtt_.state();
+    Serial.print("ThingsBoard MQTT connect FAILED. state=");
+    Serial.print(state);
+    Serial.print(" (");
+    // Decode PubSubClient state codes
+    switch (state) {
+      case -4: Serial.print("MQTT_CONNECTION_TIMEOUT"); break;
+      case -3: Serial.print("MQTT_CONNECTION_LOST"); break;
+      case -2: Serial.print("MQTT_CONNECT_FAILED"); break;
+      case -1: Serial.print("MQTT_DISCONNECTED"); break;
+      case 0: Serial.print("MQTT_CONNECTED"); break;
+      case 1: Serial.print("MQTT_CONNECT_BAD_PROTOCOL"); break;
+      case 2: Serial.print("MQTT_CONNECT_BAD_CLIENT_ID"); break;
+      case 3: Serial.print("MQTT_CONNECT_UNAVAILABLE"); break;
+      case 4: Serial.print("MQTT_CONNECT_BAD_CREDENTIALS"); break;
+      case 5: Serial.print("MQTT_CONNECT_UNAUTHORIZED"); break;
+      default: Serial.print("UNKNOWN"); break;
+    }
+    Serial.println(")");
   }
   return ok;
 }

@@ -25,7 +25,6 @@
 #include "app/Settings.h"
 #include "app/RuntimeConfig.h"
 #include "app/RemoteConfigManager.h"
-#include "inputs/Button.h"
 
 #include "app/Telemetry.h"
 
@@ -48,7 +47,6 @@ actuators::RelayActuator valveRelay(config::kPinRelayValve, config::kRelayActive
 
 controllers::LightController lightController(
   lightRelay,
-  config::kLightOnAfterMotionMs,
   config::kTempLightHysteresisC);
 controllers::WateringController wateringController(
     valveRelay,
@@ -63,9 +61,8 @@ app::Telemetry telemetry;
 app::RuntimeConfig runtimeConfig;
 
 app::Settings settings;
-inputs::Button lightManualButton(config::kPinLightManualButton);
 
-app::RemoteConfigManager remoteConfig(runtimeConfig, settings, lightController, wateringController);
+app::RemoteConfigManager remoteConfig(runtimeConfig, settings, wateringController);
 
 uint32_t lastSensorReadMs = 0;
 uint32_t lastTelemetryMs = 0;
@@ -138,20 +135,22 @@ void onTbAttributes(JsonVariantConst root) {
 
 void setup() {
   Serial.begin(115200);
-  delay(50);
+  delay(1000);  // Wait longer for serial to initialize in Wokwi
 
   Serial.println();
+  Serial.println("========================================");
   Serial.println("Smart Garden ESP32 starting...");
+  Serial.println("========================================");
 
   lightRelay.begin();
   valveRelay.begin();
 
   dht.begin();
+  delay(2000);  // Give DHT sensor time to stabilize (required for Wokwi simulation)
+  
   pir.begin();
   mq135.begin();
   soil.begin();
-
-  lightManualButton.begin();
 
   settings.setTempLimitEnabled(config::kTempLightEnabledByDefault);
   settings.setTempTooColdC(config::kTempTooColdCDefault);
@@ -159,7 +158,6 @@ void setup() {
   // Initialize runtime defaults from Config.h (fallback).
   runtimeConfig.telemetryIntervalMs = config::kTelemetryIntervalMs;
   runtimeConfig.sensorReadIntervalMs = config::kSensorReadIntervalMs;
-  runtimeConfig.lightOnAfterMotionMs = config::kLightOnAfterMotionMs;
   runtimeConfig.tempLightEnabled = config::kTempLightEnabledByDefault;
   runtimeConfig.tempTooColdC = config::kTempTooColdCDefault;
   runtimeConfig.soilWetThreshold = config::kSoilWetThreshold;
@@ -180,18 +178,20 @@ void setup() {
   tbClient.begin(secrets::kThingsBoardHost, secrets::kThingsBoardPort, secrets::kThingsBoardAccessToken);
   tbClient.setRpcHandler(onTbRpc);
   tbClient.setAttributesHandler(onTbAttributes);
+
+  Serial.println("Setup complete. Entering loop...");
 }
 
 void loop() {
   wifiManager.ensureConnected();
 
-  const uint32_t nowMs = millis();
-
-  if (lightManualButton.update(nowMs)) {
-    settings.toggleManualOff();
-    Serial.print("Manual light OFF latch: ");
-    Serial.println(settings.manualOff() ? "ON" : "OFF");
+  // Only proceed with MQTT if WiFi is connected
+  if (!wifiManager.isConnected()) {
+    delay(100);
+    return;
   }
+
+  const uint32_t nowMs = millis();
 
   // Keep MQTT alive (non-blocking).
   tbClient.loop();
@@ -234,7 +234,7 @@ void loop() {
   }
 
   // Update light frequently so manual button / remote override takes effect immediately.
-  lightController.update(nowMs, lastMotionDetected, lastDhtReading, settings);
+  lightController.update(lastDhtReading, settings);
 
   // Periodic telemetry send.
   if (nowMs - lastTelemetryMs >= runtimeConfig.telemetryIntervalMs) {

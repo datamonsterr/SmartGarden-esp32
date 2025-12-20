@@ -1,0 +1,11 @@
+.pio/
+.vscode/
+.idea/
+
+# Secrets
+include/Secrets.h
+.env
+
+# OS
+Thumbs.db
+Desktop.ini

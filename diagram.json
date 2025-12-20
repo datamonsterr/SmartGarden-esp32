@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "author": "SmartGarden",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": -8.4, "left": -1.85, "attrs": {} },
+
+    { "type": "wokwi-dht22", "id": "dht", "top": -170.2, "left": -135.4, "attrs": { "temperature": "26", "humidity": "65" } },
+    { "type": "wokwi-pir-motion-sensor", "id": "pir", "top": -170.2, "left": 142.6, "attrs": {} },
+
+    { "type": "wokwi-potentiometer", "id": "potMq", "top": 143.8, "left": -206.6, "attrs": { "label": "MQ-135 (analog sim)", "value": "0.4" } },
+    { "type": "wokwi-potentiometer", "id": "potSoil", "top": 143.8, "left": 154.2, "attrs": { "label": "Soil moisture (analog sim)", "value": "0.6" } },
+
+    { "type": "wokwi-relay-module", "id": "relayLight", "top": -26.2, "left": -274.2, "attrs": { "label": "Relay Light" } },
+    { "type": "wokwi-led", "id": "ledLight", "top": -70.6, "left": -351.4, "attrs": { "color": "yellow", "label": "Light" } },
+
+    { "type": "wokwi-relay-module", "id": "relayValve", "top": 44.2, "left": -274.2, "attrs": { "label": "Relay Valve" } },
+    { "type": "wokwi-led", "id": "ledValve", "top": 2.6, "left": -351.4, "attrs": { "color": "blue", "label": "Valve" } },
+
+    { "type": "wokwi-pushbutton", "id": "btnLightOff", "top": -165.8, "left": -8.2, "attrs": { "label": "Manual OFF latch" } }
+  ],
+  "connections": [
+    [ "dht:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "dht:GND", "esp:GND.2", "black", [ "v0" ] ],
+    [ "dht:SDA", "esp:GPIO4", "green", [ "v0" ] ],
+
+    [ "pir:VCC", "esp:5V", "red", [ "v0" ] ],
+    [ "pir:GND", "esp:GND.1", "black", [ "v0" ] ],
+    [ "pir:OUT", "esp:GPIO27", "orange", [ "v0" ] ],
+
+    [ "potMq:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "potMq:GND", "esp:GND.2", "black", [ "v0" ] ],
+    [ "potMq:SIG", "esp:GPIO34", "purple", [ "v0" ] ],
+
+    [ "potSoil:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "potSoil:GND", "esp:GND.2", "black", [ "v0" ] ],
+    [ "potSoil:SIG", "esp:GPIO35", "purple", [ "v0" ] ],
+
+    [ "relayLight:VCC", "esp:5V", "red", [ "v0" ] ],
+    [ "relayLight:GND", "esp:GND.1", "black", [ "v0" ] ],
+    [ "relayLight:IN", "esp:GPIO26", "green", [ "v0" ] ],
+
+    [ "relayValve:VCC", "esp:5V", "red", [ "v0" ] ],
+    [ "relayValve:GND", "esp:GND.1", "black", [ "v0" ] ],
+    [ "relayValve:IN", "esp:GPIO25", "green", [ "v0" ] ],
+
+    [ "relayLight:COM", "esp:5V", "red", [ "v0" ] ],
+    [ "relayLight:NO", "ledLight:A", "yellow", [ "v0" ] ],
+    [ "ledLight:C", "esp:GND.1", "black", [ "v0" ] ],
+
+    [ "relayValve:COM", "esp:5V", "red", [ "v0" ] ],
+    [ "relayValve:NO", "ledValve:A", "blue", [ "v0" ] ],
+    [ "ledValve:C", "esp:GND.1", "black", [ "v0" ] ],
+
+    [ "btnLightOff:1.l", "esp:GPIO14", "green", [ "v0" ] ],
+    [ "btnLightOff:2.l", "esp:GND.2", "black", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}

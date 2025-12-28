@@ -29,7 +29,7 @@ void RemoteConfigManager::begin() {
 
 const char* RemoteConfigManager::sharedKeysCsv() {
   // Keep this stable so dashboards / attributes are easy to manage.
-  return "telemetryIntervalMs,sensorReadIntervalMs,lightOnAfterMotionMs,tempLightEnabled,tempTooColdC,soilWetThreshold,soilDryThreshold,minValveOnMs,minValveOffMs";
+  return "telemetryIntervalMs,sensorReadIntervalMs,lightOnAfterMotionMs,tempLightEnabled,tempTooColdC,minValveOnMs,minValveOffMs";
 }
 
 bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
@@ -62,8 +62,6 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
   maybeSetBool_(cfg, "tempLightEnabled", config_.tempLightEnabled);
   maybeSetFloat_(cfg, "tempTooColdC", config_.tempTooColdC);
 
-  maybeSetI32_(cfg, "soilWetThreshold", config_.soilWetThreshold);
-  maybeSetI32_(cfg, "soilDryThreshold", config_.soilDryThreshold);
   maybeSetU32_(cfg, "minValveOnMs", config_.minValveOnMs);
   maybeSetU32_(cfg, "minValveOffMs", config_.minValveOffMs);
 
@@ -91,8 +89,7 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 
 void RemoteConfigManager::applyToControllers_() {
   light_.setOnAfterMotionMs(config_.lightOnAfterMotionMs);
-  watering_.setThresholds(config_.soilDryThreshold, config_.soilWetThreshold);
-  watering_.setMinDurations(config_.minValveOnMs, config_.minValveOffMs);
+  // Watering controller now only needs interval/duration, not thresholds
 }
 
 void RemoteConfigManager::maybeSetU32_(JsonVariantConst obj, const char* key, uint32_t& dst) {
@@ -158,8 +155,7 @@ bool RemoteConfigManager::loadFromNvs_() {
   config_.tempLightEnabled = prefs.getBool("tmp_en", config_.tempLightEnabled);
   config_.tempTooColdC = prefs.getFloat("tmp_c", config_.tempTooColdC);
 
-  config_.soilWetThreshold = prefs.getInt("sw_wet", config_.soilWetThreshold);
-  config_.soilDryThreshold = prefs.getInt("sw_dry", config_.soilDryThreshold);
+  // Soil sensor removed - no longer load thresholds
   config_.minValveOnMs = prefs.getUInt("v_on", config_.minValveOnMs);
   config_.minValveOffMs = prefs.getUInt("v_off", config_.minValveOffMs);
 
@@ -182,8 +178,7 @@ void RemoteConfigManager::saveToNvs_() {
   prefs.putBool("tmp_en", config_.tempLightEnabled);
   prefs.putFloat("tmp_c", config_.tempTooColdC);
 
-  prefs.putInt("sw_wet", config_.soilWetThreshold);
-  prefs.putInt("sw_dry", config_.soilDryThreshold);
+  // Soil sensor removed - no longer save thresholds
   prefs.putUInt("v_on", config_.minValveOnMs);
   prefs.putUInt("v_off", config_.minValveOffMs);
 

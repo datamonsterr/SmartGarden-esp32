@@ -16,11 +16,9 @@ struct RuntimeConfig {
   bool tempLightEnabled = false;
   float tempTooColdC = 18.0f;
 
-  // Watering
-  int soilWetThreshold = 2400;
-  int soilDryThreshold = 1800;
-  uint32_t minValveOnMs = 10000;
-  uint32_t minValveOffMs = 30000;
+  // Watering (timer-based, no soil sensor)
+  uint32_t minValveOnMs = 30000;
+  uint32_t minValveOffMs = 3600000;
 };
 
 }  // namespace app

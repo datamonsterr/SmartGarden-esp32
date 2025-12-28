@@ -4,60 +4,53 @@ namespace controllers {
 
 WateringController::WateringController(
     actuators::RelayActuator& valveRelay,
-    sensors::AnalogSensor& soilSensor,
-    int dryThreshold,
-    int wetThreshold,
-    uint32_t minOnMs,
-    uint32_t minOffMs)
+    uint32_t intervalMs,
+    uint32_t durationMs)
     : valveRelay_(valveRelay),
-      soilSensor_(soilSensor),
-      dryThreshold_(dryThreshold),
-      wetThreshold_(wetThreshold),
-      minOnMs_(minOnMs),
-      minOffMs_(minOffMs) {}
+      intervalMs_(intervalMs),
+      durationMs_(durationMs) {}
 
-void WateringController::setThresholds(int dryThreshold, int wetThreshold) {
-  dryThreshold_ = dryThreshold;
-  wetThreshold_ = wetThreshold;
-}
-
-void WateringController::setMinDurations(uint32_t minOnMs, uint32_t minOffMs) {
-  minOnMs_ = minOnMs;
-  minOffMs_ = minOffMs;
+void WateringController::setInterval(uint32_t intervalMs, uint32_t durationMs) {
+  intervalMs_ = intervalMs;
+  durationMs_ = durationMs;
 }
 
 void WateringController::update(uint32_t nowMs) {
-  state_.soilRaw = soilSensor_.readRaw();
-
-  // Dry/Wet evaluation (with hysteresis thresholds)
-  if (state_.soilRaw <= dryThreshold_) {
-    state_.isDry = true;
-  }
-  if (state_.soilRaw >= wetThreshold_) {
-    state_.isDry = false;
-  }
-
-  const bool valveCurrentlyOn = valveRelay_.isOn();
-  const uint32_t elapsedSinceSwitch = nowMs - lastSwitchMs_;
-
-  // Decide desired valve state (respect min on/off durations)
-  if (state_.isDry) {
-    if (!valveCurrentlyOn && elapsedSinceSwitch >= minOffMs_) {
-      valveRelay_.setOn(true);
-      lastSwitchMs_ = nowMs;
+  // Timer-based watering logic
+  if (intervalMs_ > 0 && durationMs_ > 0) {
+    if (!isWatering_) {
+      // Check if it's time to start watering
+      if (lastWateringStartMs_ == 0 || (nowMs - lastWateringStartMs_) >= intervalMs_) {
+        isWatering_ = true;
+        lastWateringStartMs_ = nowMs;
+        valveRelay_.setOn(true);
+        Serial.println("Watering: Timer START");
+      }
+    } else {
+      // Check if watering duration has elapsed
+      if ((nowMs - lastWateringStartMs_) >= durationMs_) {
+        isWatering_ = false;
+        valveRelay_.setOn(false);
+        Serial.println("Watering: Timer STOP");
+      }
     }
   } else {
-    if (valveCurrentlyOn && elapsedSinceSwitch >= minOnMs_) {
+    // Invalid config, turn off valve
+    if (isWatering_) {
+      isWatering_ = false;
       valveRelay_.setOn(false);
-      lastSwitchMs_ = nowMs;
     }
   }
 
+  // Update state
   state_.valveOn = valveRelay_.isOn();
+  state_.lastWateringMs = lastWateringStartMs_;
+  state_.nextWateringMs = lastWateringStartMs_ + intervalMs_;
 }
 
 WateringState WateringController::state() const {
   return state_;
 }
 
-}  // namespace controllers
+} // namespace controllers
+

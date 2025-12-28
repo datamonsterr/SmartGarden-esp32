@@ -6,16 +6,17 @@ void Telemetry::updateSensors(
     const sensors::DhtReading& dht,
     bool motionDetected,
     int mq135Raw,
-    int soilRaw) {
+    float lightLux) {
   dht_ = dht;
   motionDetected_ = motionDetected;
   mq135Raw_ = mq135Raw;
-  soilRaw_ = soilRaw;
+  lightLux_ = lightLux;
 }
 
 String Telemetry::buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering) const {
   JsonDocument doc;
 
+  // DHT22 sensor data
   if (dht_.ok) {
     doc["temperature_c"] = dht_.temperatureC;
     doc["humidity_pct"] = dht_.humidityPct;
@@ -23,6 +24,26 @@ String Telemetry::buildTelemetryJson(const controllers::LightState& light, const
     doc["temperature_c"] = nullptr;
     doc["humidity_pct"] = nullptr;
   }
+
+  // Motion sensor
+  doc["motion"] = motionDetected_;
+
+  // Air quality (MQ135)
+  doc["air_quality_raw"] = mq135Raw_;
+
+  // Light intensity (BH1750)
+  if (lightLux_ >= 0) {
+    doc["light_lux"] = lightLux_;
+  } else {
+    doc["light_lux"] = nullptr;
+  }
+
+  // Light controller state
+  doc["light_on"] = light.lightOn;
+  doc["manual_off"] = light.manualOff;
+
+  // Watering controller state
+  doc["valve_on"] = watering.valveOn;
 
   String out;
   serializeJson(doc, out);

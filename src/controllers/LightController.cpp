@@ -2,8 +2,15 @@
 
 namespace controllers {
 
-LightController::LightController(actuators::RelayActuator& relay, uint32_t onAfterMotionMs, float tempHysteresisC)
-    : relay_(relay), onAfterMotionMs_(onAfterMotionMs), tempHysteresisC_(tempHysteresisC) {}
+LightController::LightController(actuators::RelayActuator &relay,
+                                 uint32_t onAfterMotionMs,
+                                 float tempHysteresisC)
+    : relay_(relay), onAfterMotionMs_(onAfterMotionMs),
+      tempHysteresisC_(tempHysteresisC) {
+  // Initialize lastMotionMs to far past so it doesn't trigger immediately at
+  // startup (nowMs=0)
+  state_.lastMotionMs = 0 - onAfterMotionMs_ - 1000;
+}
 
 void LightController::setOnAfterMotionMs(uint32_t onAfterMotionMs) {
   onAfterMotionMs_ = onAfterMotionMs;
@@ -56,4 +63,4 @@ LightState LightController::state() const {
   return state_;
 }
 
-}  // namespace controllers
+} // namespace controllers

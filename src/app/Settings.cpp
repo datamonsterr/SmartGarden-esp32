@@ -43,4 +43,12 @@ float Settings::tempTooColdC() const {
   return tempTooColdC_;
 }
 
+void Settings::setSelfLightEnable(bool enable) {
+  selfLightEnable_ = enable;
+}
+
+bool Settings::selfLightEnable() const {
+  return selfLightEnable_;
+}
+
 }  // namespace app

@@ -14,24 +14,27 @@ struct WateringState {
 };
 
 class WateringController {
- public:
-  WateringController(
-      actuators::RelayActuator& valveRelay,
-      uint32_t intervalMs,
-      uint32_t durationMs);
+public:
+  WateringController(actuators::RelayActuator &valveRelay, uint32_t intervalMs,
+                     uint32_t durationMs);
 
   void update(uint32_t nowMs);
   WateringState state() const;
 
   void setInterval(uint32_t intervalMs, uint32_t durationMs);
+  void setSelfValveEnable(bool enabled);
+  void triggerFeedback();
 
- private:
-  actuators::RelayActuator& valveRelay_;
+private:
+  actuators::RelayActuator &valveRelay_;
 
   uint32_t intervalMs_;
   uint32_t durationMs_;
   uint32_t lastWateringStartMs_ = 0;
   bool isWatering_ = false;
+
+  bool enabled_ = true;
+  uint32_t feedbackStartMs_ = 0;
 
   WateringState state_;
 };

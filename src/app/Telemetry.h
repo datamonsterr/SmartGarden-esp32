@@ -19,7 +19,7 @@ class Telemetry {
       float lightLux);
 
   // Returns a compact JSON object string (fits in PubSubClient buffer).
-  String buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering) const;
+  String buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering, bool selfLightEnable) const;
 
  private:
   sensors::DhtReading dht_;

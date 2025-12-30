@@ -13,7 +13,7 @@ void Telemetry::updateSensors(
   lightLux_ = lightLux;
 }
 
-String Telemetry::buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering) const {
+String Telemetry::buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering, bool selfLightEnable) const {
   JsonDocument doc;
 
   // DHT22 sensor data
@@ -41,6 +41,7 @@ String Telemetry::buildTelemetryJson(const controllers::LightState& light, const
   // Light controller state
   doc["light_on"] = light.lightOn;
   doc["manual_off"] = light.manualOff;
+  doc["self_light_enable"] = selfLightEnable;
 
   // Watering controller state
   doc["valve_on"] = watering.valveOn;

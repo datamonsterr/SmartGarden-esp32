@@ -3,17 +3,8 @@
 namespace controllers {
 
 LightController::LightController(actuators::RelayActuator &relay,
-                                 uint32_t onAfterMotionMs,
                                  float tempHysteresisC)
-    : relay_(relay), onAfterMotionMs_(onAfterMotionMs),
-      tempHysteresisC_(tempHysteresisC) {
-  // Initialize lastMotionMs to far past so it doesn't trigger immediately at
-  // startup (nowMs=0)
-  state_.lastMotionMs = 0 - onAfterMotionMs_ - 1000;
-}
-
-void LightController::setOnAfterMotionMs(uint32_t onAfterMotionMs) {
-  onAfterMotionMs_ = onAfterMotionMs;
+    : relay_(relay), tempHysteresisC_(tempHysteresisC) {
 }
 
 void LightController::update(
@@ -27,9 +18,8 @@ void LightController::update(
   state_.tempLimitEnabled = settings.tempLimitEnabled();
   state_.tempTooColdC = settings.tempTooColdC();
 
-  if (motionDetected) {
-    state_.lastMotionMs = nowMs;
-  }
+  // Motion is tracked for telemetry only, not for control
+  // No automatic light trigger from motion
 
   if (settings.tempLimitEnabled() && dht.ok) {
     const float onAtOrBelow = settings.tempTooColdC();
@@ -46,13 +36,16 @@ void LightController::update(
 
   bool desiredOn = false;
 
-  if (settings.manualOff()) {
+  // Check if self_light_enable is false - if so, force light OFF
+  if (!settings.selfLightEnable()) {
+    desiredOn = false;
+  } else if (settings.manualOff()) {
     desiredOn = false;
   } else if (settings.remoteOverrideEnabled()) {
     desiredOn = settings.remoteLightOn();
   } else {
-    const bool motionRequestOn = (nowMs - state_.lastMotionMs) <= onAfterMotionMs_;
-    desiredOn = motionRequestOn || tempRequestOn_;
+    // Only temperature control, no motion control
+    desiredOn = tempRequestOn_;
   }
 
   relay_.setOn(desiredOn);

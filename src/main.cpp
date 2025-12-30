@@ -52,7 +52,6 @@ actuators::RelayActuator valveRelay(config::kPinRelayValve, config::kRelayActive
 
 controllers::LightController lightController(
   lightRelay,
-  config::kLightOnAfterMotionMs,
   config::kTempLightHysteresisC);
 controllers::WateringController wateringController(
     valveRelay,
@@ -202,11 +201,11 @@ void setup() {
   // Initialize runtime defaults from Config.h (fallback).
   runtimeConfig.telemetryIntervalMs = config::kTelemetryIntervalMs;
   runtimeConfig.sensorReadIntervalMs = config::kSensorReadIntervalMs;
-  runtimeConfig.lightOnAfterMotionMs = config::kLightOnAfterMotionMs;
   runtimeConfig.tempLightEnabled = config::kTempLightEnabledByDefault;
   runtimeConfig.tempTooColdC = config::kTempTooColdCDefault;
   runtimeConfig.minValveOnMs = config::kMinValveOnMs;
   runtimeConfig.minValveOffMs = config::kMinValveOffMs;
+  runtimeConfig.selfLightEnable = true;  // Default: enabled
 
   // Set initial watering interval/duration from Config
   wateringController.setInterval(config::kWateringIntervalMs,
@@ -234,11 +233,6 @@ void loop() {
 
   if (lightManualButton.update(nowMs)) {
     settings.toggleManualOff();
-    // When turning off the manual-off latch, trigger motion to turn light on
-    if (!settings.manualOff()) {
-      lastMotionDetected = true;
-      lightController.update(nowMs, lastMotionDetected, lastDhtReading, settings);
-    }
     Serial.print("Manual light OFF latch: ");
     Serial.println(settings.manualOff() ? "ON" : "OFF");
   }
@@ -278,9 +272,6 @@ void loop() {
     lastMotionDetected = pir.readMotion();
     Serial.print("PIR motion: ");
     Serial.println(lastMotionDetected ? "DETECTED" : "none");
-    if (lastMotionDetected) {
-      Serial.println("→ Motion detected! Light should turn ON");
-    }
     
     const int mq135Raw = mq135.readRaw();
     Serial.print("MQ135 raw: ");
@@ -339,7 +330,7 @@ void loop() {
     }
 
     if (mqttConnected) {
-      const auto payload = telemetry.buildTelemetryJson(lightController.state(), wateringController.state());
+      const auto payload = telemetry.buildTelemetryJson(lightController.state(), wateringController.state(), settings.selfLightEnable());
       Serial.print("Telemetry: ");
       Serial.println(payload);
       const bool ok = tbClient.sendTelemetryJson(payload.c_str());

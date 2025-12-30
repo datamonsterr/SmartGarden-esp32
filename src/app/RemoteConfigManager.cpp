@@ -25,11 +25,12 @@ void RemoteConfigManager::begin() {
   // Keep Settings in sync with runtime config defaults.
   settings_.setTempLimitEnabled(config_.tempLightEnabled);
   settings_.setTempTooColdC(config_.tempTooColdC);
+  settings_.setSelfLightEnable(config_.selfLightEnable);
 }
 
 const char* RemoteConfigManager::sharedKeysCsv() {
   // Keep this stable so dashboards / attributes are easy to manage.
-  return "telemetryIntervalMs,sensorReadIntervalMs,lightOnAfterMotionMs,tempLightEnabled,tempTooColdC,minValveOnMs,minValveOffMs";
+  return "telemetryIntervalMs,sensorReadIntervalMs,tempLightEnabled,tempTooColdC,minValveOnMs,minValveOffMs,self_light_enable";
 }
 
 bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
@@ -57,13 +58,14 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 
   maybeSetU32_(cfg, "telemetryIntervalMs", config_.telemetryIntervalMs);
   maybeSetU32_(cfg, "sensorReadIntervalMs", config_.sensorReadIntervalMs);
-  maybeSetU32_(cfg, "lightOnAfterMotionMs", config_.lightOnAfterMotionMs);
 
   maybeSetBool_(cfg, "tempLightEnabled", config_.tempLightEnabled);
   maybeSetFloat_(cfg, "tempTooColdC", config_.tempTooColdC);
 
   maybeSetU32_(cfg, "minValveOnMs", config_.minValveOnMs);
   maybeSetU32_(cfg, "minValveOffMs", config_.minValveOffMs);
+
+  maybeSetBool_(cfg, "self_light_enable", config_.selfLightEnable);
 
   // Safety clamps (avoid breaking sensors/logic via bad server values)
   if (config_.sensorReadIntervalMs < 2000) {
@@ -80,6 +82,7 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 
     settings_.setTempLimitEnabled(config_.tempLightEnabled);
     settings_.setTempTooColdC(config_.tempTooColdC);
+    settings_.setSelfLightEnable(config_.selfLightEnable);
 
     saveToNvs_();
   }
@@ -88,7 +91,7 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 }
 
 void RemoteConfigManager::applyToControllers_() {
-  light_.setOnAfterMotionMs(config_.lightOnAfterMotionMs);
+  // No motion-based control anymore
   // Watering controller now only needs interval/duration, not thresholds
 }
 
@@ -150,7 +153,6 @@ bool RemoteConfigManager::loadFromNvs_() {
 
   config_.telemetryIntervalMs = prefs.getUInt("tel_ms", config_.telemetryIntervalMs);
   config_.sensorReadIntervalMs = prefs.getUInt("sen_ms", config_.sensorReadIntervalMs);
-  config_.lightOnAfterMotionMs = prefs.getUInt("lgt_ms", config_.lightOnAfterMotionMs);
 
   config_.tempLightEnabled = prefs.getBool("tmp_en", config_.tempLightEnabled);
   config_.tempTooColdC = prefs.getFloat("tmp_c", config_.tempTooColdC);
@@ -158,6 +160,8 @@ bool RemoteConfigManager::loadFromNvs_() {
   // Soil sensor removed - no longer load thresholds
   config_.minValveOnMs = prefs.getUInt("v_on", config_.minValveOnMs);
   config_.minValveOffMs = prefs.getUInt("v_off", config_.minValveOffMs);
+
+  config_.selfLightEnable = prefs.getBool("slf_lgt", config_.selfLightEnable);
 
   prefs.end();
   return true;
@@ -173,7 +177,6 @@ void RemoteConfigManager::saveToNvs_() {
 
   prefs.putUInt("tel_ms", config_.telemetryIntervalMs);
   prefs.putUInt("sen_ms", config_.sensorReadIntervalMs);
-  prefs.putUInt("lgt_ms", config_.lightOnAfterMotionMs);
 
   prefs.putBool("tmp_en", config_.tempLightEnabled);
   prefs.putFloat("tmp_c", config_.tempTooColdC);
@@ -181,6 +184,8 @@ void RemoteConfigManager::saveToNvs_() {
   // Soil sensor removed - no longer save thresholds
   prefs.putUInt("v_on", config_.minValveOnMs);
   prefs.putUInt("v_off", config_.minValveOffMs);
+
+  prefs.putBool("slf_lgt", config_.selfLightEnable);
 
   prefs.end();
 }

@@ -23,6 +23,10 @@ class Settings {
   void setTempTooColdC(float tempC);
   float tempTooColdC() const;
 
+  // Self light enable from ThingsBoard (global enable/disable for light relay)
+  void setSelfLightEnable(bool enable);
+  bool selfLightEnable() const;
+
  private:
   bool manualOff_ = false;
 
@@ -31,6 +35,8 @@ class Settings {
 
   bool tempLimitEnabled_ = false;
   float tempTooColdC_ = 18.0f;
+
+  bool selfLightEnable_ = true;  // Default: enabled
 };
 
 }  // namespace app

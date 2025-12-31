@@ -1,0 +1,11 @@
+{
+  "thingsboardApiEndpoint": "https://thingsboard.cloud",
+  "appLinksUrlHost": "thingsboard.cloud",
+  "appLinksUrlScheme": "https",
+  "registrationRedirectUrlScheme": "tbscheme",
+  "registrationRedirectUrlHost": "app.pe.thingsboard.org",
+  "androidApplicationId": "com.smartgarden",
+  "androidApplicationName": "Smart Garden",
+  "thingsboardOAuth2CallbackUrlScheme": "com.smartgarden.auth",
+  "thingsboardAndroidAppSecret": "bkpsNG11a0NxcHNwbjlyNTkwdXRhYWVqRWRsQjFodURmSHJOY3NhUWtkS3luMmhqaGRLNVNIc2U1aktpR1Uwag=="
+}

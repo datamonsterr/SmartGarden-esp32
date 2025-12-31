@@ -1,0 +1,12 @@
+flutter_native_splash:
+  color: "##ffffff"
+  image: assets/branding/splash.png
+  android_12:
+    image: assets/branding/splash_android_12.png
+    color: "#ffffff"
+    icon_background_color: "#ffffff"
+  android: true
+  ios: true
+  info_plist_files:
+   - 'ios/Runner/Info-Debug.plist'
+   - 'ios/Runner/Info-Release.plist'

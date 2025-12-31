@@ -1,0 +1,109 @@
+plugins {
+    id 'com.android.application'
+        // START: FlutterFire Configuration
+  //  id 'com.google.gms.google-services'
+    // END: FlutterFire Configuration
+    id 'kotlin-android'
+    id 'dev.flutter.flutter-gradle-plugin'
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+def getDartDefineValue = { key ->
+    def dartDefines = [:]
+    if (project.hasProperty('dart-defines')) {
+        dartDefines = project.property('dart-defines')
+            .split(',')
+            .collectEntries { entry ->
+                def pair = new String(entry.decodeBase64(), 'UTF-8').split('=')
+                [(pair.first()): pair.last()]
+            }
+    }
+    return dartDefines[key]
+}
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+def customScheme = getDartDefineValue('thingsboardOAuth2CallbackUrlScheme') ?: 'org.thingsboard.app.auth'
+def customLabel = getDartDefineValue('androidApplicationName') ?: 'Thingsboard app'
+def appLinksUrlHost = getDartDefineValue('appLinksUrlHost') ?: 'thingsboard.cloud'
+def webPathPrefix = getDartDefineValue('webPathPrefix') ?: '/api/noauth/qr'
+def appLinksUrlScheme = getDartDefineValue('appLinksUrlScheme') ?: 'https'
+def redirectURLHost = getDartDefineValue('registrationRedirectUrlHost') ?: 'app.pe.thingsboard.org'
+def redirectURLScheme = getDartDefineValue('registrationRedirectUrlScheme') ?: 'tbscheme'
+
+android {
+namespace "org.thingsboard.pe.app"
+    compileSdkVersion 35
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+   
+    defaultConfig {
+        applicationId getDartDefineValue('androidApplicationId') ?: "org.thingsboard.pe.app"
+        minSdkVersion 24
+        multiDexEnabled true
+        targetSdkVersion 36
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        manifestPlaceholders = [
+    authScheme: customScheme,
+    appLabel: customLabel,
+    appLinksUrlHost: appLinksUrlHost,
+    webPathPrefix: webPathPrefix,
+    appLinksUrlScheme: appLinksUrlScheme,
+    redirectURLHost: redirectURLHost,
+    redirectURLScheme: redirectURLScheme
+]
+    }
+compileOptions {
+        coreLibraryDesugaringEnabled true 
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig signingConfigs.debug
+            // Custom proguard rules
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+        }
+    }
+
+    dependencies {
+        implementation 'androidx.browser:browser:1.0.0'
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+        implementation 'androidx.window:window:1.0.0'
+        implementation 'androidx.window:window-java:1.0.0'
+    }
+    android.applicationVariants.all { variant ->
+    variant.outputs.all { output ->
+        def builtType = variant.buildType.name
+        def versionName = variant.versionName
+        def versionCode = variant.versionCode
+
+        outputFileName = "${customLabel}-${builtType}-${versionName}+${versionCode}.apk"
+    }
+}
+}
+
+flutter {
+    source '../..'
+}

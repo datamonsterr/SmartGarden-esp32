@@ -51,4 +51,12 @@ bool Settings::selfLightEnable() const {
   return selfLightEnable_;
 }
 
+void Settings::setSelfValveEnable(bool enable) {
+  selfValveEnable_ = enable;
+}
+
+bool Settings::selfValveEnable() const {
+  return selfValveEnable_;
+}
+
 }  // namespace app

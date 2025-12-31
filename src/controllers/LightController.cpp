@@ -12,40 +12,38 @@ void LightController::update(
     bool motionDetected,
     const sensors::DhtReading& dht,
     const app::Settings& settings) {
+  // Store for telemetry only - not used for control
   state_.motionDetected = motionDetected;
   state_.manualOff = settings.manualOff();
   state_.remoteOverrideEnabled = settings.remoteOverrideEnabled();
   state_.tempLimitEnabled = settings.tempLimitEnabled();
   state_.tempTooColdC = settings.tempTooColdC();
 
-  // Motion is tracked for telemetry only, not for control
-  // No automatic light trigger from motion
-
-  if (settings.tempLimitEnabled() && dht.ok) {
-    const float onAtOrBelow = settings.tempTooColdC();
-    const float offAtOrAbove = settings.tempTooColdC() + tempHysteresisC_;
-
-    if (!tempRequestOn_ && dht.temperatureC <= onAtOrBelow) {
-      tempRequestOn_ = true;
-    } else if (tempRequestOn_ && dht.temperatureC >= offAtOrAbove) {
-      tempRequestOn_ = false;
-    }
-  } else {
-    tempRequestOn_ = false;
-  }
+  // ========== DUMB DEVICE MODE với SAFETY CHECK ==========
+  // ESP32 KHÔNG tự tính toán logic bật/tắt đèn.
+  // Server (ThingsBoard) quyết định và gửi xuống qua Shared Attribute: self_light_enable
+  // 
+  // ⚠️ SAFETY: Nếu Server gửi OFF nhưng nhiệt độ vẫn < 23°C, ESP32 sẽ GIỮ ĐÈN BẬT
+  // (Tránh tình huống Rule Chain conflict gửi ON rồi OFF liên tiếp)
+  // ========================================================
 
   bool desiredOn = false;
 
-  // Check if self_light_enable is false - if so, force light OFF
-  if (!settings.selfLightEnable()) {
+  if (settings.manualOff()) {
+    // Local manual button has priority to force OFF
     desiredOn = false;
-  } else if (settings.manualOff()) {
-    desiredOn = false;
-  } else if (settings.remoteOverrideEnabled()) {
-    desiredOn = settings.remoteLightOn();
   } else {
-    // Only temperature control, no motion control
-    desiredOn = tempRequestOn_;
+    // Listen to Server's command via self_light_enable
+    desiredOn = settings.selfLightEnable();
+    
+    // SAFETY CHECK: Nếu Server muốn TẮT nhưng nhiệt độ vẫn QUÁ LẠNH
+    if (!desiredOn && dht.ok && dht.temperatureC < 23.0f) {
+      Serial.println("⚠️  SAFETY: Ignoring OFF command - Temperature still too cold!");
+      Serial.print("   Temperature: ");
+      Serial.print(dht.temperatureC);
+      Serial.println("°C < 23°C → Keeping light ON");
+      desiredOn = true;  // Override: GIỮ ĐÈN BẬT
+    }
   }
 
   relay_.setOn(desiredOn);

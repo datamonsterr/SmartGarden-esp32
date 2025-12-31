@@ -13,19 +13,24 @@ void Telemetry::updateSensors(
   lightLux_ = lightLux;
 }
 
-String Telemetry::buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering, bool selfLightEnable) const {
+String Telemetry::buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering, bool selfLightEnable, bool selfValveEnable) const {
   JsonDocument doc;
 
+  // ========== REQUIRED BY THINGSBOARD RULE CHAIN ==========
+  // Server's Rule Chain filters on "temperature_c" to trigger automation.
+  // This field MUST be present and use exact key name "temperature_c".
+  // ========================================================
+  
   // DHT22 sensor data
   if (dht_.ok) {
-    doc["temperature_c"] = dht_.temperatureC;
+    doc["temperature_c"] = dht_.temperatureC;  // ⚠️ CRITICAL: Server depends on this key
     doc["humidity_pct"] = dht_.humidityPct;
   } else {
     doc["temperature_c"] = nullptr;
     doc["humidity_pct"] = nullptr;
   }
 
-  // Motion sensor
+  // Motion sensor (for monitoring/telemetry only, not used in automation)
   doc["motion"] = motionDetected_;
 
   // Air quality (MQ135)
@@ -45,6 +50,7 @@ String Telemetry::buildTelemetryJson(const controllers::LightState& light, const
 
   // Watering controller state
   doc["valve_on"] = watering.valveOn;
+  doc["self_valve_enable"] = selfValveEnable;
 
   String out;
   serializeJson(doc, out);

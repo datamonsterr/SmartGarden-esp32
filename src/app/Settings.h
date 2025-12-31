@@ -27,6 +27,10 @@ class Settings {
   void setSelfLightEnable(bool enable);
   bool selfLightEnable() const;
 
+  // Self valve enable from ThingsBoard (global enable/disable for watering valve)
+  void setSelfValveEnable(bool enable);
+  bool selfValveEnable() const;
+
  private:
   bool manualOff_ = false;
 
@@ -37,6 +41,7 @@ class Settings {
   float tempTooColdC_ = 18.0f;
 
   bool selfLightEnable_ = true;  // Default: enabled
+  bool selfValveEnable_ = false; // Default: disabled (Server controls)
 };
 
 }  // namespace app

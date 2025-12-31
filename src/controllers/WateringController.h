@@ -3,39 +3,26 @@
 #include <Arduino.h>
 
 #include "actuators/RelayActuator.h"
-#include "sensors/AnalogSensor.h"
 
 namespace controllers {
 
 struct WateringState {
   bool valveOn = false;
-  uint32_t lastWateringMs = 0;
-  uint32_t nextWateringMs = 0;
 };
 
 class WateringController {
 public:
-  WateringController(actuators::RelayActuator &valveRelay, uint32_t intervalMs,
-                     uint32_t durationMs);
+  WateringController(actuators::RelayActuator &valveRelay);
 
   void update(uint32_t nowMs);
   WateringState state() const;
 
-  void setInterval(uint32_t intervalMs, uint32_t durationMs);
+  // Server control via Shared Attribute
   void setSelfValveEnable(bool enabled);
-  void triggerFeedback();
 
 private:
   actuators::RelayActuator &valveRelay_;
-
-  uint32_t intervalMs_;
-  uint32_t durationMs_;
-  uint32_t lastWateringStartMs_ = 0;
-  bool isWatering_ = false;
-
-  bool enabled_ = true;
-  uint32_t feedbackStartMs_ = 0;
-
+  bool selfValveEnable_ = false;
   WateringState state_;
 };
 

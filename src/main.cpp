@@ -53,10 +53,7 @@ actuators::RelayActuator valveRelay(config::kPinRelayValve, config::kRelayActive
 controllers::LightController lightController(
   lightRelay,
   config::kTempLightHysteresisC);
-controllers::WateringController wateringController(
-    valveRelay,
-    config::kWateringIntervalMs,
-    config::kWateringDurationMs);
+controllers::WateringController wateringController(valveRelay);
 
 app::Telemetry telemetry;
 
@@ -81,6 +78,11 @@ sensors::DhtReading lastDhtReading;
 bool lastMotionDetected = false;
 
 void onTbRpc(const char* method, JsonVariantConst params) {
+  // ========== DUMB DEVICE MODE ==========
+  // ESP32 chủ yếu nhận lệnh từ Shared Attributes (self_light_enable).
+  // RPC commands dưới đây là backup cho manual control/testing.
+  // =======================================
+
   if (strcmp(method, "setLight") == 0) {
     const bool on = params.as<bool>();
     settings.setRemoteLightOverride(true, on);
@@ -95,11 +97,12 @@ void onTbRpc(const char* method, JsonVariantConst params) {
     return;
   }
 
+  // Legacy RPCs for temp limit (not used in dumb device mode, kept for compatibility)
   if (strcmp(method, "setTempLimit") == 0) {
     const float limitC = params.as<float>();
     settings.setTempTooColdC(limitC);
     settings.setTempLimitEnabled(true);
-    Serial.print("RPC setTempLimit: ");
+    Serial.print("RPC setTempLimit (legacy): ");
     Serial.println(limitC);
     return;
   }
@@ -107,7 +110,7 @@ void onTbRpc(const char* method, JsonVariantConst params) {
   if (strcmp(method, "setTempLimitEnabled") == 0) {
     const bool enabled = params.as<bool>();
     settings.setTempLimitEnabled(enabled);
-    Serial.print("RPC setTempLimitEnabled: ");
+    Serial.print("RPC setTempLimitEnabled (legacy): ");
     Serial.println(enabled ? "true" : "false");
     return;
   }
@@ -127,26 +130,46 @@ void onTbRpc(const char* method, JsonVariantConst params) {
     return;
   }
 
-  // Watering RPCs
-  if (strcmp(method, "setWateringInterval") == 0) {
-    const uint32_t val = params.as<uint32_t>();
-    // Assume duration is kept same or user calls setWateringDuration
-    // separately? Or maybe just use the config duration for now. For
-    // simplicity, let's just set the interval and keep current duration (or
-    // default).
-    wateringController.setInterval(val, config::kWateringDurationMs);
-    Serial.print("RPC setWateringInterval: ");
-    Serial.println(val);
-    return;
-  }
+  // Note: Watering is now controlled by Server via self_valve_enable attribute
+  // (removed setWateringInterval RPC)
 
   Serial.print("RPC unknown method: ");
   Serial.println(method);
 }
 
 void onTbAttributes(JsonVariantConst root) {
+  // ========== THINGSBOARD SHARED ATTRIBUTES HANDLER ==========
+  // Callback này được gọi khi:
+  // 1. ESP32 request attributes lúc khởi động (requestSharedAttributes)
+  // 2. Server thay đổi Shared Attribute (real-time update)
+  //
+  // QUAN TRỌNG: Khi Server thay đổi self_light_enable, callback này
+  // được trigger tự động => ESP32 nhận lệnh real-time
+  // ===========================================================
+  
+  // 🔍 DEBUG: In ra toàn bộ JSON nhận được từ Server
+  Serial.print("📥 Received attributes from ThingsBoard at ");
+  Serial.print(millis());
+  Serial.println(" ms:");
+  String jsonDebug;
+  serializeJsonPretty(root, jsonDebug);
+  Serial.println(jsonDebug);
+  
   if (remoteConfig.applyAttributes(root)) {
-    Serial.println("Applied remote config (attributes)");
+    Serial.println("✅ Applied remote config from ThingsBoard attributes");
+    Serial.print("   └─ self_light_enable = ");
+    Serial.println(settings.selfLightEnable() ? "TRUE" : "FALSE");
+    Serial.print("   └─ self_valve_enable = ");
+    Serial.println(settings.selfValveEnable() ? "TRUE" : "FALSE");
+    Serial.print("   └─ Current temperature = ");
+    if (lastDhtReading.ok) {
+      Serial.print(lastDhtReading.temperatureC);
+      Serial.println("°C");
+    } else {
+      Serial.println("N/A");
+    }
+  } else {
+    Serial.println("⚠️  No changes applied (attribute format issue or no change)");
   }
 }
 
@@ -207,9 +230,8 @@ void setup() {
   runtimeConfig.minValveOffMs = config::kMinValveOffMs;
   runtimeConfig.selfLightEnable = true;  // Default: enabled
 
-  // Set initial watering interval/duration from Config
-  wateringController.setInterval(config::kWateringIntervalMs,
-                                 config::kWateringDurationMs);
+  // WateringController is now controlled via Server (no timer logic)
+  // wateringController.setInterval() removed - Server controls via self_valve_enable
 
   remoteConfig.begin();
 
@@ -245,11 +267,22 @@ void loop() {
     // Force attribute re-request after reconnect.
     attrRequestedThisConnection = false;
   } else {
+    // ========== REQUEST ATTRIBUTES ON RECONNECT ==========
+    // Khi mới connect/reconnect, ESP32 cần hỏi Server về trạng thái hiện tại:
+    // "Đèn nên ON hay OFF lúc này?"
+    // 
+    // Lý do: ESP32 có thể mất điện/reset giữa chừng, cần đồng bộ lại
+    // với trạng thái self_light_enable từ Server
+    // ======================================================
     if (!attrRequestedThisConnection && (nowMs - lastAttrRequestMs) >= 30000) {
       lastAttrRequestMs = nowMs;
+      Serial.print("📡 Requesting shared attributes: ");
+      Serial.println(app::RemoteConfigManager::sharedKeysCsv());
       if (tbClient.requestSharedAttributes(attrRequestId++, app::RemoteConfigManager::sharedKeysCsv())) {
-        Serial.println("Requested shared attributes");
+        Serial.println("   └─ Request sent successfully");
         attrRequestedThisConnection = true;
+      } else {
+        Serial.println("   └─ ❌ Request failed!");
       }
     }
   }
@@ -330,12 +363,16 @@ void loop() {
     }
 
     if (mqttConnected) {
-      const auto payload = telemetry.buildTelemetryJson(lightController.state(), wateringController.state(), settings.selfLightEnable());
-      Serial.print("Telemetry: ");
+      const auto payload = telemetry.buildTelemetryJson(lightController.state(), wateringController.state(), settings.selfLightEnable(), settings.selfValveEnable());
+      Serial.println("========================================");
+      Serial.print("📤 Sending Telemetry to ThingsBoard");
       Serial.println(payload);
+      Serial.println("========================================");
       const bool ok = tbClient.sendTelemetryJson(payload.c_str());
       if (!ok) {
-        Serial.println("Telemetry publish failed");
+        Serial.println("❌ Telemetry publish failed");
+      } else {
+        Serial.println("✅ Telemetry published successfully");
       }
     }
   }

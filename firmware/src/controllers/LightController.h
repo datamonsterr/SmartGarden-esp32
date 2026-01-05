@@ -10,6 +10,7 @@ namespace controllers {
 
 struct LightState {
   bool lightOn = false;
+  bool motionDetected = false;  // For telemetry only
 
   // For telemetry/debugging
   bool manualOff = false;
@@ -23,6 +24,8 @@ class LightController {
   LightController(actuators::RelayActuator& relay, float tempHysteresisC);
 
   void update(
+      uint32_t nowMs,
+      bool motionDetected,
       const sensors::DhtReading& dht,
       const app::Settings& settings);
   LightState state() const;

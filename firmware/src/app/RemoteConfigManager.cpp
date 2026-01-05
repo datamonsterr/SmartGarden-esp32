@@ -13,8 +13,9 @@ static const char* kPrefsNamespace = "sg_cfg";
 RemoteConfigManager::RemoteConfigManager(
     RuntimeConfig& runtimeConfig,
     Settings& settings,
+    controllers::LightController& light,
     controllers::WateringController& watering)
-    : config_(runtimeConfig), settings_(settings), watering_(watering) {}
+    : config_(runtimeConfig), settings_(settings), light_(light), watering_(watering) {}
 
 void RemoteConfigManager::begin() {
   // Load last known config (if any). If not present, runtime config stays at defaults.
@@ -24,15 +25,28 @@ void RemoteConfigManager::begin() {
   // Keep Settings in sync with runtime config defaults.
   settings_.setTempLimitEnabled(config_.tempLightEnabled);
   settings_.setTempTooColdC(config_.tempTooColdC);
+  settings_.setSelfLightEnable(config_.selfLightEnable);
 }
 
 const char* RemoteConfigManager::sharedKeysCsv() {
   // Keep this stable so dashboards / attributes are easy to manage.
-  return "telemetryIntervalMs,sensorReadIntervalMs,tempLightEnabled,tempTooColdC,soilWetThreshold,soilDryThreshold,minValveOnMs,minValveOffMs";
+  return "telemetryIntervalMs,sensorReadIntervalMs,tempLightEnabled,tempTooColdC,minValveOnMs,minValveOffMs,self_light_enable,self_valve_enable";
 }
 
 bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
   changed_ = false;
+
+  // ========== THINGSBOARD SHARED ATTRIBUTES ==========
+  // ESP32 hoạt động như "Dumb Device":
+  // - Gửi temperature_c lên Server
+  // - Server phân tích và set self_light_enable = true/false
+  // - ESP32 nhận và bật/tắt đèn theo lệnh
+  //
+  // TB attribute payload formats:
+  // - {"shared":{...}}        (when requesting attributes)
+  // - {"client":{...}}        (client-side attributes)
+  // - {"key":value,...}       (direct update notification)
+  // ===================================================
 
   // TB attribute payload can be:
   // - {"shared":{...}}
@@ -60,10 +74,37 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
   maybeSetBool_(cfg, "tempLightEnabled", config_.tempLightEnabled);
   maybeSetFloat_(cfg, "tempTooColdC", config_.tempTooColdC);
 
-  maybeSetI32_(cfg, "soilWetThreshold", config_.soilWetThreshold);
-  maybeSetI32_(cfg, "soilDryThreshold", config_.soilDryThreshold);
   maybeSetU32_(cfg, "minValveOnMs", config_.minValveOnMs);
   maybeSetU32_(cfg, "minValveOffMs", config_.minValveOffMs);
+
+  // ⚠️ CRITICAL: self_light_enable từ ThingsBoard Rule Chain
+  // Server tự động set attribute này dựa trên nhiệt độ
+  Serial.print("🔍 Checking self_light_enable in attributes... ");
+  if (cfg.containsKey("self_light_enable")) {
+    const bool newVal = cfg["self_light_enable"].as<bool>();
+    Serial.print("Found: ");
+    Serial.print(newVal ? "TRUE" : "FALSE");
+    Serial.print(" (current: ");
+    Serial.print(config_.selfLightEnable ? "TRUE" : "FALSE");
+    Serial.println(")");
+  } else {
+    Serial.println("NOT FOUND in attributes payload!");
+  }
+  maybeSetBool_(cfg, "self_light_enable", config_.selfLightEnable);
+
+  // self_valve_enable: Server controls watering valve
+  Serial.print("🔍 Checking self_valve_enable in attributes... ");
+  if (cfg.containsKey("self_valve_enable")) {
+    const bool newVal = cfg["self_valve_enable"].as<bool>();
+    Serial.print("Found: ");
+    Serial.print(newVal ? "TRUE" : "FALSE");
+    Serial.print(" (current: ");
+    Serial.print(config_.selfValveEnable ? "TRUE" : "FALSE");
+    Serial.println(")");
+  } else {
+    Serial.println("NOT FOUND in attributes payload!");
+  }
+  maybeSetBool_(cfg, "self_valve_enable", config_.selfValveEnable);
 
   // Safety clamps (avoid breaking sensors/logic via bad server values)
   if (config_.sensorReadIntervalMs < 2000) {
@@ -80,6 +121,13 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 
     settings_.setTempLimitEnabled(config_.tempLightEnabled);
     settings_.setTempTooColdC(config_.tempTooColdC);
+    
+    // Sync self_light_enable to Settings immediately
+    settings_.setSelfLightEnable(config_.selfLightEnable);
+    
+    // Sync self_valve_enable to Settings and WateringController
+    settings_.setSelfValveEnable(config_.selfValveEnable);
+    watering_.setSelfValveEnable(config_.selfValveEnable);
 
     saveToNvs_();
   }
@@ -88,8 +136,8 @@ bool RemoteConfigManager::applyAttributes(JsonVariantConst root) {
 }
 
 void RemoteConfigManager::applyToControllers_() {
-  watering_.setThresholds(config_.soilDryThreshold, config_.soilWetThreshold);
-  watering_.setMinDurations(config_.minValveOnMs, config_.minValveOffMs);
+  // No motion-based control anymore
+  // Watering controller now only needs interval/duration, not thresholds
 }
 
 void RemoteConfigManager::maybeSetU32_(JsonVariantConst obj, const char* key, uint32_t& dst) {
@@ -154,10 +202,12 @@ bool RemoteConfigManager::loadFromNvs_() {
   config_.tempLightEnabled = prefs.getBool("tmp_en", config_.tempLightEnabled);
   config_.tempTooColdC = prefs.getFloat("tmp_c", config_.tempTooColdC);
 
-  config_.soilWetThreshold = prefs.getInt("sw_wet", config_.soilWetThreshold);
-  config_.soilDryThreshold = prefs.getInt("sw_dry", config_.soilDryThreshold);
+  // Soil sensor removed - no longer load thresholds
   config_.minValveOnMs = prefs.getUInt("v_on", config_.minValveOnMs);
   config_.minValveOffMs = prefs.getUInt("v_off", config_.minValveOffMs);
+
+  config_.selfLightEnable = prefs.getBool("slf_lgt", config_.selfLightEnable);
+  config_.selfValveEnable = prefs.getBool("slf_vlv", config_.selfValveEnable);
 
   prefs.end();
   return true;
@@ -177,10 +227,12 @@ void RemoteConfigManager::saveToNvs_() {
   prefs.putBool("tmp_en", config_.tempLightEnabled);
   prefs.putFloat("tmp_c", config_.tempTooColdC);
 
-  prefs.putInt("sw_wet", config_.soilWetThreshold);
-  prefs.putInt("sw_dry", config_.soilDryThreshold);
+  // Soil sensor removed - no longer save thresholds
   prefs.putUInt("v_on", config_.minValveOnMs);
   prefs.putUInt("v_off", config_.minValveOffMs);
+
+  prefs.putBool("slf_lgt", config_.selfLightEnable);
+  prefs.putBool("slf_vlv", config_.selfValveEnable);
 
   prefs.end();
 }

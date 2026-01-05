@@ -1,0 +1,22 @@
+// Test relay blink - Copy code này vào src/main.cpp để test
+#include <Arduino.h>
+
+constexpr uint8_t kPinRelayLight = 26;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(kPinRelayLight, OUTPUT);
+  Serial.println("Relay blink test starting...");
+}
+
+void loop() {
+  // Bật relay (Active LOW: digitalWrite LOW để bật)
+  digitalWrite(kPinRelayLight, LOW);
+  Serial.println("Relay ON (GPIO LOW) - Đèn phải SÁNG");
+  delay(2000);
+  
+  // Tắt relay (Active LOW: digitalWrite HIGH để tắt)
+  digitalWrite(kPinRelayLight, HIGH);
+  Serial.println("Relay OFF (GPIO HIGH) - Đèn phải TẮT");
+  delay(2000);
+}

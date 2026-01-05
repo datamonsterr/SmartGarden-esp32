@@ -16,16 +16,16 @@ class Telemetry {
       const sensors::DhtReading& dht,
       bool motionDetected,
       int mq135Raw,
-      int soilRaw);
+      float lightLux);
 
   // Returns a compact JSON object string (fits in PubSubClient buffer).
-  String buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering) const;
+  String buildTelemetryJson(const controllers::LightState& light, const controllers::WateringState& watering, bool selfLightEnable, bool selfValveEnable) const;
 
  private:
   sensors::DhtReading dht_;
   bool motionDetected_ = false;
   int mq135Raw_ = -1;
-  int soilRaw_ = -1;
+  float lightLux_ = -1.0f;
 };
 
 }  // namespace app

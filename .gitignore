@@ -14,7 +14,8 @@ android/build/
 *.ipr
 *.iws
 .idea/
-
+.env
+.pio
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.
@@ -52,3 +53,4 @@ GoogleService-Info.plist
 # FVM Version Cache
 .fvm/
 tb_firebase_options.dart
+firmware/include/Secrets.h
